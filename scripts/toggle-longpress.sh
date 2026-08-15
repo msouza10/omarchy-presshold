@@ -25,6 +25,11 @@ set -euo pipefail
 CONF_DIR="$HOME/.config/fcitx5/conf"
 CONF="$CONF_DIR/keyboard.conf"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
+THEME_HOOK_SOURCE="$PLUGIN_DIR/extras/theme-set.d/fcitx5-theme.sh"
+THEME_HOOK_DEST="$HOME/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh"
+
 status() {
   if [[ -f "$CONF" ]] && grep -q '^EnableLongPress=True' "$CONF"; then
     echo enabled
@@ -53,11 +58,27 @@ restart_fcitx() {
   fi
 }
 
+# One-time install of the optional theme-matching hook (extras/theme-set.d),
+# run the first time someone enables Press & Hold. Only touches the hook if
+# nothing is there yet, so it never overwrites a hand-edited copy. The hook
+# restarts Fcitx5 itself after generating the theme, so callers should skip
+# their own restart_fcitx when this returns success.
+install_theme_hook_if_missing() {
+  [[ -f "$THEME_HOOK_SOURCE" ]] || return 1
+  [[ -f "$THEME_HOOK_DEST" ]] && return 1
+  mkdir -p "$(dirname "$THEME_HOOK_DEST")"
+  cp "$THEME_HOOK_SOURCE" "$THEME_HOOK_DEST"
+  chmod +x "$THEME_HOOK_DEST"
+  bash "$THEME_HOOK_DEST"
+}
+
 case "${1:-}" in
 enable)
   set_key "EnableLongPress" "True"
   set_key "Choose Modifier" "None"
-  restart_fcitx
+  if ! install_theme_hook_if_missing; then
+    restart_fcitx
+  fi
   echo enabled
   ;;
 disable)

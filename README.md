@@ -11,6 +11,7 @@ This plugin does **not** reimplement press-and-hold from scratch. Fcitx5's `keyb
 - Adds a small icon to the bar showing whether Press & Hold is on or off.
 - Click it to open a toggle. Turning it on edits `~/.config/fcitx5/conf/keyboard.conf` idempotently — only the `EnableLongPress` and `Choose Modifier` keys, every other setting you already have is left untouched — and restarts Fcitx5 so the change actually takes effect.
 - Turning it on also sets `Choose Modifier=None`, so pressing a plain number (`1`-`9`) selects a candidate. Fcitx5 defaults this to `Alt` (requiring `Alt+1`, `Alt+2`...); without overriding it, a bare number press isn't intercepted at all and gets typed into the field instead of picking a character.
+- The first time you turn it on, it also installs the [theme-matching hook](#extra-matching-the-candidate-popup-to-your-omarchy-theme) (`extras/theme-set.d/fcitx5-theme.sh`) into `~/.config/omarchy/hooks/theme-set.d/`, so the popup matches your Omarchy theme out of the box — no manual step needed. It never overwrites a copy that's already there, so any edits you've made to it are left alone.
 - The icon always reflects the real state of `keyboard.conf`, even if you edit it by hand outside the plugin.
 
 ## Install
@@ -68,9 +69,9 @@ On a stock Omarchy install, Fcitx5 runs under a systemd user service (`omarchy-f
 
 ## Extra: matching the candidate popup to your Omarchy theme
 
-`extras/theme-set.d/fcitx5-theme.sh` is an optional, separate piece — not part of the plugin's own manifest/QML, and not installed automatically by `omarchy plugin add`. It regenerates a Fcitx5 ClassicUI theme ("omarchy") from your active Omarchy theme's colors (`omarchy-theme-color`): matching background/accent/foreground, rounded corners with a soft drop shadow (generated as 9-patch PNGs, since Fcitx5's theme format only takes flat colors or images — no `border-radius`), the system font (`JetBrainsMono Nerd Font`), and native compositor blur via Fcitx5's own `EnableBlur` (the KDE blur protocol, which Hyprland also implements — this does **not** touch Hyprland's own `decoration:blur:enabled`, so it works even on themes that keep window blur off).
+`extras/theme-set.d/fcitx5-theme.sh` regenerates a Fcitx5 ClassicUI theme ("omarchy") from your active Omarchy theme's colors (`omarchy-theme-color`): matching background/accent/foreground, rounded corners with a soft drop shadow (generated as 9-patch PNGs, since Fcitx5's theme format only takes flat colors or images — no `border-radius`), the system font (`JetBrainsMono Nerd Font`), and native compositor blur via Fcitx5's own `EnableBlur` (the KDE blur protocol, which Hyprland also implements — this does **not** touch Hyprland's own `decoration:blur:enabled`, so it works even on themes that keep window blur off).
 
-To install it:
+The plugin installs this automatically into `~/.config/omarchy/hooks/theme-set.d/` the first time you turn Press & Hold on — no manual step needed. To install or reapply it by hand instead:
 
 ```bash
 mkdir -p ~/.config/omarchy/hooks/theme-set.d
@@ -79,7 +80,7 @@ chmod +x ~/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh
 ~/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh   # apply immediately
 ```
 
-Once installed, Omarchy re-runs it automatically on every `omarchy theme set` (via the `theme-set.d` hook contract), so the popup keeps matching whichever theme you switch to.
+Once installed (by the plugin or by hand), Omarchy re-runs it automatically on every `omarchy theme set` (via the `theme-set.d` hook contract), so the popup keeps matching whichever theme you switch to.
 
 **Known limitation:** the popup's position relative to the text cursor (Fcitx5 anchors near the cursor rect it's given, extending right/down — not centered above the character like macOS) is not configurable; Fcitx5's `ClassicUI` doesn't expose an anchor/gravity setting for the panel itself, only for decorative overlays within the theme images.
 
