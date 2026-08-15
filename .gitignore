@@ -1,0 +1,9 @@
+# editor / OS cruft
+*.swp
+*~
+.DS_Store
+.qmlls.ini
+
+# research/reference notes, not part of the packaged plugin
+idea.txt
+doc.txt
