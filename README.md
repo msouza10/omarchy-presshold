@@ -66,6 +66,23 @@ Fcitx5 stays fully responsible for input handling, key repeat, the candidate lis
 
 On a stock Omarchy install, Fcitx5 runs under a systemd user service (`omarchy-fcitx5.service`, `Restart=always`). This plugin restarts Fcitx5 with `systemctl --user restart omarchy-fcitx5.service` — never a detached `fcitx5 -r &`. A detached replace process steals Fcitx5's D-Bus name out from under the service; the service's own process then fails to reacquire that name, exits, and systemd immediately restarts it, forever, in a silent fast crash-loop that leaves the orphan as the only working instance. `systemctl restart` stops the managed process first, so there's no name collision. If the unit isn't present, the script falls back to the detached replace.
 
+## Extra: matching the candidate popup to your Omarchy theme
+
+`extras/theme-set.d/fcitx5-theme.sh` is an optional, separate piece — not part of the plugin's own manifest/QML, and not installed automatically by `omarchy plugin add`. It regenerates a Fcitx5 ClassicUI theme ("omarchy") from your active Omarchy theme's colors (`omarchy-theme-color`): matching background/accent/foreground, rounded corners with a soft drop shadow (generated as 9-patch PNGs, since Fcitx5's theme format only takes flat colors or images — no `border-radius`), the system font (`JetBrainsMono Nerd Font`), and native compositor blur via Fcitx5's own `EnableBlur` (the KDE blur protocol, which Hyprland also implements — this does **not** touch Hyprland's own `decoration:blur:enabled`, so it works even on themes that keep window blur off).
+
+To install it:
+
+```bash
+mkdir -p ~/.config/omarchy/hooks/theme-set.d
+cp extras/theme-set.d/fcitx5-theme.sh ~/.config/omarchy/hooks/theme-set.d/
+chmod +x ~/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh
+~/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh   # apply immediately
+```
+
+Once installed, Omarchy re-runs it automatically on every `omarchy theme set` (via the `theme-set.d` hook contract), so the popup keeps matching whichever theme you switch to.
+
+**Known limitation:** the popup's position relative to the text cursor (Fcitx5 anchors near the cursor rect it's given, extending right/down — not centered above the character like macOS) is not configurable; Fcitx5's `ClassicUI` doesn't expose an anchor/gravity setting for the panel itself, only for decorative overlays within the theme images.
+
 ## License
 
 MIT
