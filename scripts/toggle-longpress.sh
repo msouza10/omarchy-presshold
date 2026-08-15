@@ -19,6 +19,10 @@
 # defaults to Alt), so without this a bare number press falls through and
 # gets typed into the field instead of picking a candidate — macOS-style
 # press-and-hold expects plain number presses to select.
+#
+# scripts/reorder-candidates.py (separate script) reorders which candidate
+# comes first for a given key -- e.g. promoting "ã" ahead of "à" for "a" --
+# rather than which keys get long-press at all, which is this script's job.
 
 set -euo pipefail
 
