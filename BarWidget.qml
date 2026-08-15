@@ -95,9 +95,24 @@ BarWidget {
     anchorItem: button
     bar: root.bar
     owner: root
-    contentWidth: content.implicitWidth
+    // Both axes must add the card's own chrome. PopupCard exposes
+    // verticalContentInset but no horizontal counterpart, so the width is
+    // computed the same way by hand: without it the card is sized to the raw
+    // content width, then insets the content holder by padding+border on each
+    // side, squeezing the content and clipping whatever sits flush right (the
+    // toggle switch, the last key in a row).
+    readonly property real horizontalContentInset: card.padding * 2
+      + Border.left(card.borderSpec) + Border.right(card.borderSpec)
+
+    contentWidth: content.implicitWidth + card.horizontalContentInset
     contentHeight: content.implicitHeight + card.verticalContentInset
-    onOpenChanged: if (card.open) root.refreshStatus()
+    // Reopening lands on the toggle, not wherever the last session was left:
+    // the sub-views are a detour, and the popup's primary job is the on/off
+    // state. Reset on close rather than open so the swap isn't visible.
+    onOpenChanged: {
+      if (card.open) root.refreshStatus()
+      else content.view = "toggle"
+    }
 
     ToggleContent {
       id: content

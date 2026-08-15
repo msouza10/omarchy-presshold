@@ -7,6 +7,13 @@ import qs.Commons  // Color, Style tokens
 // outside-click dismissal): the toggle (default), a grid of accent-bearing
 // keys, and a reorderable candidate list for whichever key was tapped.
 //
+// Each view's root is a plain Item with explicit implicitWidth/implicitHeight
+// (never the Column directly — Column's implicitWidth is computed by the
+// positioner and is read-only; assigning it is a hard QML error, and without
+// it PopupCard, which sizes the real popup window from content.implicitWidth,
+// falls back to a stale/wrong size and clips the view). The Column inside
+// just handles layout at a fixed inner width.
+//
 // VISUAL MOCKUP ONLY (branch: visual/accent-reorder-ui): the "keys" and
 // "candidates" views run on hardcoded sample data (mockCandidates) and
 // reorder that in-memory copy only. Nothing here talks to Fcitx5. Wiring
@@ -104,83 +111,88 @@ Item {
   Component {
     id: toggleView
 
-    Column {
-      width: 240
-      leftPadding: content.hpad
-      rightPadding: content.hpad
-      topPadding: content.vpad
-      bottomPadding: content.vpad
-      spacing: Style.spacing.rowGap
+    Item {
+      readonly property int innerWidth: 300
+      implicitWidth: innerWidth
+      implicitHeight: col.implicitHeight + content.vpad * 2
 
-      Row {
-        width: parent.width - content.hpad * 2
-        spacing: Style.spacing.md
+      Column {
+        id: col
+        x: content.hpad
+        y: content.vpad
+        width: parent.innerWidth - content.hpad * 2
+        spacing: Style.spacing.rowGap
 
-        Text {
-          width: parent.width - toggleTrack.width - Style.spacing.md
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Press & Hold"
-          color: Color.popups.text
-          font.pixelSize: Style.font.body
-        }
+        Row {
+          width: parent.width
+          spacing: Style.spacing.md
 
-        Rectangle {
-          id: toggleTrack
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(40)
-          height: Style.space(20)
-          radius: height / 2
-          opacity: content.statusKnown && !content.busy ? 1.0 : 0.5
-          color: content.pressHoldEnabled
-            ? Color.accent
-            : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.18)
+          Text {
+            width: parent.width - toggleTrack.width - Style.spacing.md
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Press & Hold"
+            color: Color.popups.text
+            font.pixelSize: Style.font.body
+          }
 
           Rectangle {
-            width: parent.height - 4
-            height: parent.height - 4
-            radius: height / 2
+            id: toggleTrack
             anchors.verticalCenter: parent.verticalCenter
-            x: content.pressHoldEnabled ? parent.width - width - 2 : 2
-            color: Color.popups.background
+            width: Style.space(40)
+            height: Style.space(20)
+            radius: height / 2
+            opacity: content.statusKnown && !content.busy ? 1.0 : 0.5
+            color: content.pressHoldEnabled
+              ? Color.accent
+              : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.18)
 
-            Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-          }
+            Rectangle {
+              width: parent.height - 4
+              height: parent.height - 4
+              radius: height / 2
+              anchors.verticalCenter: parent.verticalCenter
+              x: content.pressHoldEnabled ? parent.width - width - 2 : 2
+              color: Color.popups.background
 
-          MouseArea {
-            anchors.fill: parent
-            enabled: content.statusKnown && !content.busy
-            cursorShape: Qt.PointingHandCursor
-            onClicked: content.toggleRequested()
+              Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: content.statusKnown && !content.busy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: content.toggleRequested()
+            }
           }
         }
-      }
-
-      Text {
-        width: parent.width - content.hpad * 2
-        text: !content.statusKnown
-          ? "Checking status…"
-          : (content.pressHoldEnabled
-              ? "Hold a key like 'a' to pick á à â ã…"
-              : "Disabled — holding a key repeats it")
-        color: Color.muted
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-
-      Row {
-        width: parent.width - content.hpad * 2
-        topPadding: Style.spacing.xs
 
         Text {
-          text: "Customize accents ›"
-          color: Color.accent
+          width: parent.width
+          text: !content.statusKnown
+            ? "Checking status…"
+            : (content.pressHoldEnabled
+                ? "Hold a key like 'a' to pick á à â ã…"
+                : "Disabled — holding a key repeats it")
+          color: Color.muted
           font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.WordWrap
+        }
 
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -4
-            cursorShape: Qt.PointingHandCursor
-            onClicked: content.openKeyPicker()
+        Row {
+          width: parent.width
+          topPadding: Style.spacing.xs
+
+          Text {
+            text: "Customize accents ›"
+            color: Color.accent
+            font.pixelSize: Style.font.bodySmall
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -4
+              cursorShape: Qt.PointingHandCursor
+              onClicked: content.openKeyPicker()
+            }
           }
         }
       }
@@ -190,71 +202,76 @@ Item {
   Component {
     id: keysView
 
-    Column {
-      width: 260
-      leftPadding: content.hpad
-      rightPadding: content.hpad
-      topPadding: content.vpad
-      bottomPadding: content.vpad
-      spacing: Style.spacing.rowGap
+    Item {
+      readonly property int innerWidth: 320
+      implicitWidth: innerWidth
+      implicitHeight: col.implicitHeight + content.vpad * 2
 
-      Row {
-        width: parent.width - content.hpad * 2
-        spacing: Style.spacing.sm
+      Column {
+        id: col
+        x: content.hpad
+        y: content.vpad
+        width: parent.innerWidth - content.hpad * 2
+        spacing: Style.spacing.rowGap
 
-        Text {
-          text: "‹"
-          color: Color.accent
-          font.pixelSize: Style.font.body
-          font.bold: true
+        Row {
+          width: parent.width
+          spacing: Style.spacing.sm
 
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -6
-            cursorShape: Qt.PointingHandCursor
-            onClicked: content.backToToggle()
+          Text {
+            text: "‹"
+            color: Color.accent
+            font.pixelSize: Style.font.body
+            font.bold: true
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              cursorShape: Qt.PointingHandCursor
+              onClicked: content.backToToggle()
+            }
+          }
+
+          Text {
+            text: "Choose a key"
+            color: Color.popups.text
+            font.pixelSize: Style.font.body
           }
         }
 
-        Text {
-          text: "Choose a key"
-          color: Color.popups.text
-          font.pixelSize: Style.font.body
-        }
-      }
+        Flow {
+          width: parent.width
+          spacing: Style.spacing.xs
 
-      Flow {
-        width: parent.width - content.hpad * 2
-        spacing: Style.spacing.xs
+          Repeater {
+            model: content.accentKeys()
 
-        Repeater {
-          model: content.accentKeys()
+            Rectangle {
+              required property string modelData
 
-          Rectangle {
-            required property string modelData
+              width: Style.space(30)
+              height: Style.space(30)
+              radius: Style.cornerRadius
+              color: keyMouse.containsMouse
+                ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.18)
+                : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.08)
+              border.width: 1
+              border.color: keyMouse.containsMouse ? Color.accent : "transparent"
 
-            width: Style.space(30)
-            height: Style.space(30)
-            radius: Style.cornerRadius
-            color: keyMouse.containsMouse
-              ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.18)
-              : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.08)
-            border.width: 1
-            border.color: keyMouse.containsMouse ? Color.accent : "transparent"
+              Text {
+                anchors.centerIn: parent
+                text: parent.modelData
+                color: Color.popups.text
+                font.pixelSize: Style.font.body
+              }
 
-            Text {
-              anchors.centerIn: parent
-              text: parent.modelData
-              color: Color.popups.text
-              font.pixelSize: Style.font.body
-            }
-
-            MouseArea {
-              id: keyMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: content.openCandidates(parent.modelData)
+              MouseArea {
+                id: keyMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: content.openCandidates(parent.modelData)
+              }
             }
           }
         }
@@ -265,94 +282,99 @@ Item {
   Component {
     id: candidatesView
 
-    Column {
-      width: 260
-      leftPadding: content.hpad
-      rightPadding: content.hpad
-      topPadding: content.vpad
-      bottomPadding: content.vpad
-      spacing: Style.spacing.rowGap
+    Item {
+      readonly property int innerWidth: 320
+      implicitWidth: innerWidth
+      implicitHeight: col.implicitHeight + content.vpad * 2
 
-      Row {
-        width: parent.width - content.hpad * 2
-        spacing: Style.spacing.sm
+      Column {
+        id: col
+        x: content.hpad
+        y: content.vpad
+        width: parent.innerWidth - content.hpad * 2
+        spacing: Style.spacing.rowGap
 
-        Text {
-          text: "‹"
-          color: Color.accent
-          font.pixelSize: Style.font.body
-          font.bold: true
+        Row {
+          width: parent.width
+          spacing: Style.spacing.sm
 
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -6
-            cursorShape: Qt.PointingHandCursor
-            onClicked: content.backToKeys()
-          }
-        }
-
-        Text {
-          text: "Tap to move to front — “" + content.selectedKey + "”"
-          color: Color.popups.text
-          font.pixelSize: Style.font.body
-        }
-      }
-
-      Flow {
-        width: parent.width - content.hpad * 2
-        spacing: Style.spacing.xs
-
-        Repeater {
-          model: content.candidatesFor(content.selectedKey)
-
-          Rectangle {
-            required property string modelData
-            required property int index
-
-            width: Style.space(34)
-            height: Style.space(34)
-            radius: Style.cornerRadius
-            color: index === 0
-              ? Color.accent
-              : (candMouse.containsMouse
-                  ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.18)
-                  : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.08))
-
-            Text {
-              anchors.centerIn: parent
-              text: parent.modelData
-              color: index === 0 ? Color.popups.background : Color.popups.text
-              font.pixelSize: Style.font.body
-              font.bold: index === 0
-            }
-
-            Text {
-              visible: index > 0
-              anchors.top: parent.top
-              anchors.right: parent.right
-              anchors.margins: 1
-              text: index + 1
-              color: Color.muted
-              font.pixelSize: Style.font.caption
-            }
+          Text {
+            text: "‹"
+            color: Color.accent
+            font.pixelSize: Style.font.body
+            font.bold: true
 
             MouseArea {
-              id: candMouse
               anchors.fill: parent
-              hoverEnabled: true
+              anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
-              onClicked: content.promote(content.selectedKey, parent.modelData)
+              onClicked: content.backToKeys()
+            }
+          }
+
+          Text {
+            text: "Tap to move to front — “" + content.selectedKey + "”"
+            color: Color.popups.text
+            font.pixelSize: Style.font.body
+          }
+        }
+
+        Flow {
+          width: parent.width
+          spacing: Style.spacing.xs
+
+          Repeater {
+            model: content.candidatesFor(content.selectedKey)
+
+            Rectangle {
+              required property string modelData
+              required property int index
+
+              width: Style.space(34)
+              height: Style.space(34)
+              radius: Style.cornerRadius
+              color: index === 0
+                ? Color.accent
+                : (candMouse.containsMouse
+                    ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.18)
+                    : Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.08))
+
+              Text {
+                anchors.centerIn: parent
+                text: parent.modelData
+                color: index === 0 ? Color.popups.background : Color.popups.text
+                font.pixelSize: Style.font.body
+                font.bold: index === 0
+              }
+
+              Text {
+                visible: index > 0
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 1
+                text: index + 1
+                color: Color.muted
+                font.pixelSize: Style.font.caption
+              }
+
+              MouseArea {
+                id: candMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: content.promote(content.selectedKey, parent.modelData)
+              }
             }
           }
         }
-      }
 
-      Text {
-        width: parent.width - content.hpad * 2
-        text: "Preview only — not saved yet"
-        color: Color.muted
-        font.pixelSize: Style.font.caption
-        wrapMode: Text.WordWrap
+        Text {
+          width: parent.width
+          text: "Preview only — not saved yet"
+          color: Color.muted
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
       }
     }
   }
