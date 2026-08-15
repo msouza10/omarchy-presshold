@@ -50,7 +50,7 @@ scripts/toggle-longpress.sh enable|disable
       ↓
 ~/.config/fcitx5/conf/keyboard.conf  (EnableLongPress=True|False, Choose Modifier=None on enable, idempotent edit)
       ↓
-fcitx5 -r --disable notificationitem   (real process restart, not just a reload)
+systemctl --user restart omarchy-fcitx5.service   (real process restart, not just a reload)
       ↓
 Fcitx5 Keyboard Engine's native long-press / candidate list
 ```
@@ -61,6 +61,10 @@ Fcitx5 stays fully responsible for input handling, key repeat, the candidate lis
 
 - Terminal emulators may behave differently — you may genuinely want `aaaa...` there instead of a popup. Fcitx5's own app-exclusion settings can be used for that; this plugin does not yet expose them.
 - Only `EnableLongPress` and `Choose Modifier` are managed. `Choose Modifier` is applied on enable but not restored on disable — harmless either way, since there's no candidate list to select from once long-press is off. Candidate contents (which characters appear per key) and per-app blacklists are configured by Fcitx5 itself, not by this plugin, in this version.
+
+## A note on restarting Fcitx5
+
+On a stock Omarchy install, Fcitx5 runs under a systemd user service (`omarchy-fcitx5.service`, `Restart=always`). This plugin restarts Fcitx5 with `systemctl --user restart omarchy-fcitx5.service` — never a detached `fcitx5 -r &`. A detached replace process steals Fcitx5's D-Bus name out from under the service; the service's own process then fails to reacquire that name, exits, and systemd immediately restarts it, forever, in a silent fast crash-loop that leaves the orphan as the only working instance. `systemctl restart` stops the managed process first, so there's no name collision. If the unit isn't present, the script falls back to the detached replace.
 
 ## License
 

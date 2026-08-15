@@ -4,7 +4,15 @@
 # restart the Fcitx5 process so the new value actually takes effect.
 #
 # `fcitx5-remote -r` only reloads and was observed to NOT pick up a changed
-# EnableLongPress value; a real process restart (`fcitx5 -r`) is required.
+# EnableLongPress value; a real process restart is required. On a stock
+# Omarchy install, Fcitx5 runs under systemd (`omarchy-fcitx5.service`,
+# Restart=always). Restarting by spawning a detached `fcitx5 -r &` process
+# steals its D-Bus name out from under it: the systemd-managed process then
+# fails to (re)acquire that name, exits, and gets restarted by systemd,
+# forever — a silent, fast crash-loop that leaves the detached orphan as the
+# only live instance. `systemctl --user restart` is the only method that
+# doesn't fight the service manager. Fall back to the direct replace only
+# when the unit isn't present at all.
 #
 # Enabling also defaults "Choose Modifier" to None: Fcitx5's keyboard engine
 # only treats 1-9 as candidate-select keys while that modifier is held (it
@@ -37,8 +45,12 @@ set_key() {
 }
 
 restart_fcitx() {
-  fcitx5 -r --disable notificationitem >/dev/null 2>&1 &
-  disown
+  if systemctl --user list-unit-files omarchy-fcitx5.service >/dev/null 2>&1; then
+    systemctl --user restart omarchy-fcitx5.service
+  else
+    fcitx5 -r --disable notificationitem >/dev/null 2>&1 &
+    disown
+  fi
 }
 
 case "${1:-}" in
