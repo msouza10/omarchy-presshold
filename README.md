@@ -82,6 +82,8 @@ chmod +x ~/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh
 
 Once installed (by the plugin or by hand), Omarchy re-runs it automatically on every `omarchy theme set` (via the `theme-set.d` hook contract), so the popup keeps matching whichever theme you switch to.
 
+**Optional dependency:** rounded corners and the drop shadow are generated with ImageMagick (`magick`), which is **not** part of a stock Omarchy install — only `omarchy-theme-color` is guaranteed present. If `magick` isn't found, the hook still applies colors, font, and blur, just with a flat rectangle (`Color`/`BorderColor`) instead of rounded corners. Install `imagemagick` if you want the rounded version.
+
 **Known limitation:** the popup's position relative to the text cursor (Fcitx5 anchors near the cursor rect it's given, extending right/down — not centered above the character like macOS) is not configurable; Fcitx5's `ClassicUI` doesn't expose an anchor/gravity setting for the panel itself, only for decorative overlays within the theme images.
 
 ## License

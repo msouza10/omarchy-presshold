@@ -27,45 +27,78 @@ FOREGROUND=$(color foreground "#cacccc")
 ACCENT=$(color accent "#798186")
 MUTED=$(color muted "#4b4e55")
 
-# Rounded-corner + drop-shadow assets. Fcitx5's Background/Highlight fields
-# only take a flat Color when no Image is set; a real shape needs a 9-patch
-# PNG instead. Canvas is transparent; SHADOW_MARGIN is the strip of canvas
-# reserved for the shadow's blur falloff outside the visible rect, and also
-# becomes the theme.conf ShadowMargin so the renderer knows not to treat it
-# as clickable panel area.
-RADIUS=8
-BORDER=2
-SHADOW_MARGIN=8
-BG_CANVAS=64
-
-magick -size "${BG_CANVAS}x${BG_CANVAS}" xc:none \
-  -fill black \
-  -draw "roundrectangle $SHADOW_MARGIN,$((SHADOW_MARGIN + 4)) $((BG_CANVAS - SHADOW_MARGIN)),$((BG_CANVAS - SHADOW_MARGIN + 4)) $RADIUS,$RADIUS" \
-  -channel A -evaluate multiply 0.35 +channel \
-  -blur 0x6 \
-  /tmp/fcitx5-theme-shadow.png
-
-magick -size "${BG_CANVAS}x${BG_CANVAS}" xc:none \
-  -fill "$BACKGROUND" -stroke "$ACCENT" -strokewidth "$BORDER" \
-  -draw "roundrectangle $SHADOW_MARGIN,$SHADOW_MARGIN $((BG_CANVAS - SHADOW_MARGIN)),$((BG_CANVAS - SHADOW_MARGIN)) $RADIUS,$RADIUS" \
-  /tmp/fcitx5-theme-rect.png
-
-HL_RADIUS=6
-HL_MARGIN=8
-HL_CANVAS=32
-
-magick -size "${HL_CANVAS}x${HL_CANVAS}" xc:none \
-  -fill "$ACCENT" \
-  -draw "roundrectangle $HL_MARGIN,$HL_MARGIN $((HL_CANVAS - HL_MARGIN)),$((HL_CANVAS - HL_MARGIN)) $HL_RADIUS,$HL_RADIUS" \
-  /tmp/fcitx5-theme-highlight.png
-
 mkdir -p "$FCITX_THEME_DIR"
 cp -f "$SOURCE_ASSETS_DIR"/*.png "$FCITX_THEME_DIR/" 2>/dev/null || true
-magick /tmp/fcitx5-theme-shadow.png /tmp/fcitx5-theme-rect.png -composite "$FCITX_THEME_DIR/background.png"
-cp -f /tmp/fcitx5-theme-highlight.png "$FCITX_THEME_DIR/highlight.png"
-rm -f /tmp/fcitx5-theme-shadow.png /tmp/fcitx5-theme-rect.png /tmp/fcitx5-theme-highlight.png
 
-BG_MARGIN=$((SHADOW_MARGIN + RADIUS))
+# Rounded corners + drop shadow need real 9-patch PNGs (Fcitx5's
+# Background/Highlight fields only take a flat Color when no Image is set),
+# which needs ImageMagick. That's not an Omarchy dependency — only
+# omarchy-theme-color is guaranteed present — so fall back to flat colors
+# when `magick` isn't installed rather than failing outright.
+if command -v magick >/dev/null 2>&1; then
+  HAVE_MAGICK=1
+else
+  HAVE_MAGICK=0
+fi
+
+if [[ $HAVE_MAGICK -eq 1 ]]; then
+  # Canvas is transparent; SHADOW_MARGIN is the strip of canvas reserved for
+  # the shadow's blur falloff outside the visible rect, and also becomes the
+  # theme.conf ShadowMargin so the renderer doesn't treat it as clickable
+  # panel area.
+  RADIUS=8
+  BORDER=2
+  SHADOW_MARGIN=8
+  BG_CANVAS=64
+
+  magick -size "${BG_CANVAS}x${BG_CANVAS}" xc:none \
+    -fill black \
+    -draw "roundrectangle $SHADOW_MARGIN,$((SHADOW_MARGIN + 4)) $((BG_CANVAS - SHADOW_MARGIN)),$((BG_CANVAS - SHADOW_MARGIN + 4)) $RADIUS,$RADIUS" \
+    -channel A -evaluate multiply 0.35 +channel \
+    -blur 0x6 \
+    /tmp/fcitx5-theme-shadow.png
+
+  magick -size "${BG_CANVAS}x${BG_CANVAS}" xc:none \
+    -fill "$BACKGROUND" -stroke "$ACCENT" -strokewidth "$BORDER" \
+    -draw "roundrectangle $SHADOW_MARGIN,$SHADOW_MARGIN $((BG_CANVAS - SHADOW_MARGIN)),$((BG_CANVAS - SHADOW_MARGIN)) $RADIUS,$RADIUS" \
+    /tmp/fcitx5-theme-rect.png
+
+  HL_RADIUS=6
+  HL_MARGIN=8
+  HL_CANVAS=32
+
+  magick -size "${HL_CANVAS}x${HL_CANVAS}" xc:none \
+    -fill "$ACCENT" \
+    -draw "roundrectangle $HL_MARGIN,$HL_MARGIN $((HL_CANVAS - HL_MARGIN)),$((HL_CANVAS - HL_MARGIN)) $HL_RADIUS,$HL_RADIUS" \
+    /tmp/fcitx5-theme-highlight.png
+
+  magick /tmp/fcitx5-theme-shadow.png /tmp/fcitx5-theme-rect.png -composite "$FCITX_THEME_DIR/background.png"
+  cp -f /tmp/fcitx5-theme-highlight.png "$FCITX_THEME_DIR/highlight.png"
+  rm -f /tmp/fcitx5-theme-shadow.png /tmp/fcitx5-theme-rect.png /tmp/fcitx5-theme-highlight.png
+
+  BG_MARGIN=$((SHADOW_MARGIN + RADIUS))
+
+  BACKGROUND_SECTION="Image=background.png"
+  HIGHLIGHT_SECTION="Image=highlight.png"
+  TEXT_MARGIN=$((SHADOW_MARGIN + 2))
+  TEXT_MARGIN_V=$((SHADOW_MARGIN + 1))
+  CONTENT_MARGIN=$((SHADOW_MARGIN + 1))
+  CONTENT_MARGIN_V=$SHADOW_MARGIN
+else
+  BORDER=2
+  SHADOW_MARGIN=0
+  BG_MARGIN=2
+  HL_MARGIN=5
+
+  BACKGROUND_SECTION="Color=$BACKGROUND
+BorderColor=$ACCENT
+BorderWidth=$BORDER"
+  HIGHLIGHT_SECTION="Color=$ACCENT"
+  TEXT_MARGIN=5
+  TEXT_MARGIN_V=5
+  CONTENT_MARGIN=2
+  CONTENT_MARGIN_V=2
+fi
 
 cat >"$FCITX_THEME_DIR/theme.conf" <<THEMEEOF
 [Metadata]
@@ -90,19 +123,19 @@ Top=$SHADOW_MARGIN
 Bottom=$SHADOW_MARGIN
 
 [InputPanel/TextMargin]
-Left=$((SHADOW_MARGIN + 2))
-Right=$((SHADOW_MARGIN + 2))
-Top=$((SHADOW_MARGIN + 1))
-Bottom=$((SHADOW_MARGIN + 1))
+Left=$TEXT_MARGIN
+Right=$TEXT_MARGIN
+Top=$TEXT_MARGIN_V
+Bottom=$TEXT_MARGIN_V
 
 [InputPanel/ContentMargin]
-Left=$((SHADOW_MARGIN + 1))
-Right=$((SHADOW_MARGIN + 1))
-Top=$SHADOW_MARGIN
-Bottom=$SHADOW_MARGIN
+Left=$CONTENT_MARGIN
+Right=$CONTENT_MARGIN
+Top=$CONTENT_MARGIN_V
+Bottom=$CONTENT_MARGIN_V
 
 [InputPanel/Background]
-Image=background.png
+$BACKGROUND_SECTION
 
 [InputPanel/Background/Margin]
 Left=$BG_MARGIN
@@ -117,7 +150,7 @@ Top=$SHADOW_MARGIN
 Bottom=$SHADOW_MARGIN
 
 [InputPanel/Highlight]
-Image=highlight.png
+$HIGHLIGHT_SECTION
 
 [InputPanel/Highlight/Margin]
 Left=$HL_MARGIN
@@ -148,7 +181,7 @@ NormalColor=$FOREGROUND
 HighlightCandidateColor=$DARKER_BACKGROUND
 
 [Menu/Background]
-Image=background.png
+$BACKGROUND_SECTION
 
 [Menu/Background/Margin]
 Left=$BG_MARGIN
@@ -157,10 +190,10 @@ Top=$BG_MARGIN
 Bottom=$BG_MARGIN
 
 [Menu/ContentMargin]
-Left=$((SHADOW_MARGIN + 1))
-Right=$((SHADOW_MARGIN + 1))
-Top=$SHADOW_MARGIN
-Bottom=$SHADOW_MARGIN
+Left=$CONTENT_MARGIN
+Right=$CONTENT_MARGIN
+Top=$CONTENT_MARGIN_V
+Bottom=$CONTENT_MARGIN_V
 
 [Menu/CheckBox]
 Image=radio.png
@@ -169,7 +202,7 @@ Image=radio.png
 Image=arrow.png
 
 [Menu/Highlight]
-Image=highlight.png
+$HIGHLIGHT_SECTION
 
 [Menu/Highlight/Margin]
 Left=$HL_MARGIN
