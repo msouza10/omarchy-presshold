@@ -36,7 +36,7 @@ THEME_HOOK_DEST="$HOME/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh"
 FCITX_THEME_DIR="$HOME/.local/share/fcitx5/themes/omarchy"
 CLASSICUI_CONF="$HOME/.config/fcitx5/conf/classicui.conf"
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omaccerts.presshold"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/io.github.msouza10.presshold"
 KEYBOARD_SNAPSHOT="$STATE_DIR/keyboard-before.conf"
 CLASSICUI_SNAPSHOT="$STATE_DIR/classicui-before.conf"
 
@@ -126,4 +126,4 @@ rmdir "$STATE_DIR" 2>/dev/null || true
 
 echo
 echo "Done. You can remove the plugin now:"
-echo "  omarchy plugin remove omaccerts.presshold --yes"
+echo "  omarchy plugin remove io.github.msouza10.presshold --yes"

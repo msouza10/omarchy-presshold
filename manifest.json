@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "omaccerts.presshold",
+  "id": "io.github.msouza10.presshold",
   "name": "Press & Hold",
   "version": "0.1.0",
   "author": "omaccerts",

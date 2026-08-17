@@ -61,7 +61,7 @@ THEME_HOOK_DEST="$HOME/.config/omarchy/hooks/theme-set.d/fcitx5-theme.sh"
 # Restoring a whole-file backup would also roll back any unrelated Fcitx5
 # setting the user changed in the meantime, which is exactly the kind of
 # collateral damage the rest of this plugin goes out of its way to avoid.
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omaccerts.presshold"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/io.github.msouza10.presshold"
 SNAPSHOT="$STATE_DIR/keyboard-before.conf"
 
 # The only keys this plugin ever writes in the keyboard engine's config, with

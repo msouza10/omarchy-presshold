@@ -11,7 +11,7 @@ import qs.Commons  // Color, Style tokens
 // the icon reflects reality even if the user edited keyboard.conf by hand.
 BarWidget {
   id: root
-  moduleName: "omaccerts.presshold"
+  moduleName: "io.github.msouza10.presshold"
 
   readonly property string scriptPath: Qt.resolvedUrl("scripts/toggle-longpress.sh").toString().replace("file://", "")
   readonly property string reorderScriptPath: Qt.resolvedUrl("scripts/reorder-candidates.py").toString().replace("file://", "")
@@ -135,7 +135,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "omaccerts.presshold"
+    target: "io.github.msouza10.presshold"
 
     function open() { root.open() }
     function close() { root.close() }

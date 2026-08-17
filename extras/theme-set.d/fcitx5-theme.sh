@@ -27,7 +27,7 @@ FCITX_CLASSICUI_CONF="$HOME/.config/fcitx5/conf/classicui.conf"
 # scripts/uninstall.sh can put them back. Kept outside both the plugin and this
 # hook's own directory: either can be deleted, and the record has to outlive
 # them to be worth anything.
-CLASSICUI_SNAPSHOT="${XDG_STATE_HOME:-$HOME/.local/state}/omaccerts.presshold/classicui-before.conf"
+CLASSICUI_SNAPSHOT="${XDG_STATE_HOME:-$HOME/.local/state}/io.github.msouza10.presshold/classicui-before.conf"
 SOURCE_ASSETS_DIR="/usr/share/fcitx5/themes/default-dark"
 
 color() {

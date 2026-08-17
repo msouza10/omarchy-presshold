@@ -19,7 +19,7 @@ This plugin does **not** reimplement press-and-hold from scratch. Fcitx5's `keyb
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/<your-username>/omarchy-presshold.git --enable
+omarchy plugin add https://github.com/msouza10/omarchy-presshold.git --enable
 ```
 
 Local checkout:
@@ -32,8 +32,8 @@ omarchy plugin add "$PWD" --enable
 ## Remove
 
 ```bash
-~/.config/omarchy/plugins/omaccerts.presshold/scripts/uninstall.sh
-omarchy plugin remove omaccerts.presshold --yes
+~/.config/omarchy/plugins/io.github.msouza10.presshold/scripts/uninstall.sh
+omarchy plugin remove io.github.msouza10.presshold --yes
 ```
 
 The first line undoes everything the plugin ever wrote outside its own folder, so the second leaves nothing behind:
@@ -48,7 +48,7 @@ Everything else is left alone: Fcitx5 itself, its service, and any setting this 
 
 Just turning the toggle off in the bar also reverts the keyboard settings completely (that is what the snapshot is for) — it just leaves the theme hook and the generated theme in place.
 
-The snapshots live in `~/.local/state/omaccerts.presshold/`, outside the plugin folder on purpose: `omarchy plugin remove` deletes the plugin, and a record of what to undo is worth nothing if it goes with it. Only the keys this plugin writes are recorded, never a copy of the whole `keyboard.conf` — restoring a whole-file backup would also roll back any unrelated Fcitx5 setting you changed in the meantime.
+The snapshots live in `~/.local/state/io.github.msouza10.presshold/`, outside the plugin folder on purpose: `omarchy plugin remove` deletes the plugin, and a record of what to undo is worth nothing if it goes with it. Only the keys this plugin writes are recorded, never a copy of the whole `keyboard.conf` — restoring a whole-file backup would also roll back any unrelated Fcitx5 setting you changed in the meantime.
 
 If you installed the plugin before this existed, there is no snapshot to restore from; the revert falls back to Fcitx5's own defaults (`EnableLongPress=False`, `Choose Modifier=Alt`).
 
