@@ -11,3 +11,10 @@ __pycache__/
 idea.txt
 doc.txt
 CLAUDE.md
+
+# other frontend screenshots kept for reference; preview.png is the one
+# published (the repo root is the marketplace's expected structure, so this
+# keeps the other three out of it without deleting them)
+bar-widget.png
+virtual-board.png
+change-page.png
