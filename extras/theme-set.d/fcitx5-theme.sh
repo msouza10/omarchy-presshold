@@ -22,6 +22,12 @@ set -euo pipefail
 
 FCITX_THEME_DIR="$HOME/.local/share/fcitx5/themes/omarchy"
 FCITX_CLASSICUI_CONF="$HOME/.config/fcitx5/conf/classicui.conf"
+
+# Pre-hook values of the ClassicUI keys written below, recorded once so
+# scripts/uninstall.sh can put them back. Kept outside both the plugin and this
+# hook's own directory: either can be deleted, and the record has to outlive
+# them to be worth anything.
+CLASSICUI_SNAPSHOT="${XDG_STATE_HOME:-$HOME/.local/state}/omaccerts.presshold/classicui-before.conf"
 SOURCE_ASSETS_DIR="/usr/share/fcitx5/themes/default-dark"
 
 color() {
@@ -257,8 +263,10 @@ CLASSICUI_KEYS=(
 # ~/.config/omarchy/hooks/theme-set.d/ and has to stand on its own there.
 # python-dbus is a guaranteed Omarchy dependency (pulled in transitively by
 # uwsm, itself a hard dependency of the omarchy package).
+# First arg is the snapshot path, the rest are the key=value pairs to apply.
 apply_classicui_config() {
-  python3 - "$@" <<'PYEOF'
+  python3 - "$CLASSICUI_SNAPSHOT" "$@" <<'PYEOF'
+import os
 import sys
 
 try:
@@ -300,7 +308,26 @@ except dbus.exceptions.DBusException:
     sys.exit(3)
 
 data = unwrap(value)
-for arg in sys.argv[1:]:
+snapshot_path = sys.argv[1]
+pairs = sys.argv[2:]
+
+# Record what these keys looked like before this hook ever changed them, so a
+# later uninstall can put them back. Written once and never overwritten: after
+# the first apply the values on disk are ours, and re-taking the snapshot would
+# capture those instead of the user's. GetConfig always reports an effective
+# value (Fcitx5's default when nothing is set), so there is nothing ambiguous
+# to record.
+if not os.path.exists(snapshot_path):
+    os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
+    tmp = snapshot_path + ".tmp"
+    with open(tmp, "w") as fh:
+        for arg in pairs:
+            key = arg.partition("=")[0]
+            if key:
+                fh.write(f"{key}={data.get(key, '')}\n")
+    os.replace(tmp, snapshot_path)
+
+for arg in pairs:
     key, sep, val = arg.partition("=")
     if sep:
         data[key] = val
@@ -318,6 +345,26 @@ if ! apply_classicui_config "${CLASSICUI_KEYS[@]}"; then
   # Fcitx5 isn't running (or python-dbus is missing): writing the file is
   # safe precisely because nothing is up to overwrite it, and Fcitx5 reads
   # it on its next start.
+  #
+  # The snapshot has to be taken here too, and before the writes below --
+  # otherwise the first apply on a machine where Fcitx5 was down would leave
+  # no record, and the next successful run would snapshot our own values as if
+  # they were the user's. A key the file doesn't set is recorded empty, which
+  # scripts/uninstall.sh reads as "Fcitx5's default".
+  if [[ ! -f "$CLASSICUI_SNAPSHOT" ]]; then
+    mkdir -p "$(dirname "$CLASSICUI_SNAPSHOT")"
+    : >"$CLASSICUI_SNAPSHOT.tmp"
+    for key_value in "${CLASSICUI_KEYS[@]}"; do
+      key="${key_value%%=*}"
+      previous=""
+      if [[ -f "$FCITX_CLASSICUI_CONF" ]] && grep -q "^$key=" "$FCITX_CLASSICUI_CONF"; then
+        previous=$(sed -n "s|^$key=||p" "$FCITX_CLASSICUI_CONF" | head -1 | tr -d '\r')
+      fi
+      printf '%s=%s\n' "$key" "$previous" >>"$CLASSICUI_SNAPSHOT.tmp"
+    done
+    mv "$CLASSICUI_SNAPSHOT.tmp" "$CLASSICUI_SNAPSHOT"
+  fi
+
   touch "$FCITX_CLASSICUI_CONF"
   for key_value in "${CLASSICUI_KEYS[@]}"; do
     key="${key_value%%=*}"

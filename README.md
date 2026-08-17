@@ -11,6 +11,7 @@ This plugin does **not** reimplement press-and-hold from scratch. Fcitx5's `keyb
 - Adds a small icon to the bar showing whether Press & Hold is on or off.
 - Click it to open a toggle. Turning it on sets `EnableLongPress` and `Choose Modifier` through Fcitx5's own config API — only those two keys, every other setting you already have is left untouched — and takes effect immediately, with no restart.
 - Turning it on also sets `Choose Modifier=None`, so pressing a plain number (`1`-`9`) selects a candidate. Fcitx5 defaults this to `Alt` (requiring `Alt+1`, `Alt+2`...); without overriding it, a bare number press isn't intercepted at all and gets typed into the field instead of picking a character.
+- Before that first write it records what those keys were set to, so turning the toggle back off [restores them](#remove) instead of just switching long-press off.
 - The first time you turn it on, it also installs the [theme-matching hook](#extra-matching-the-candidate-popup-to-your-omarchy-theme) (`extras/theme-set.d/fcitx5-theme.sh`) into `~/.config/omarchy/hooks/theme-set.d/`, so the popup matches your Omarchy theme out of the box — no manual step needed. It never overwrites a copy that's already there, so any edits you've made to it are left alone.
 - **Customize accents ›** opens a [keyboard picker](#reordering-accents-the-keyboard-picker) for changing which accent a key offers first — `ã` ahead of `à` on `a`, say.
 - The icon always reflects the real state of `keyboard.conf`, even if you edit it by hand outside the plugin.
@@ -31,11 +32,25 @@ omarchy plugin add "$PWD" --enable
 ## Remove
 
 ```bash
-omarchy plugin disable omaccerts.presshold
+~/.config/omarchy/plugins/omaccerts.presshold/scripts/uninstall.sh
 omarchy plugin remove omaccerts.presshold --yes
 ```
 
-Removing the plugin does not revert `keyboard.conf` — turn the toggle off first if you want long-press disabled again.
+The first line undoes everything the plugin ever wrote outside its own folder, so the second leaves nothing behind:
+
+- the keyboard engine's `EnableLongPress` and `Choose Modifier` go back to the values recorded before the first time you turned the toggle on — not to a guess, and not merely to "off";
+- the candidate popup's ClassicUI settings go back to what they were before the theme hook first ran;
+- the generated Fcitx5 theme and the `theme-set.d` hook are removed. That hook matters: left behind, it keeps regenerating a theme for a plugin that is no longer installed, on every `omarchy theme set`. If you have edited your copy of it, it is kept and you are told so, rather than having your edits deleted.
+
+Everything else is left alone: Fcitx5 itself, its service, and any setting this plugin never wrote. So is the candidate *order* you set through the keyboard picker — that is Fcitx5's own data and stays meaningful without this plugin.
+
+**Why this isn't automatic:** Omarchy's plugin manifest has no uninstall hook. `omarchy plugin remove` disables the plugin in the shell, deletes or backs up the folder, and rescans — there is no point at which it can call into the plugin being removed. So a revert has to be triggered by hand; what the plugin can do is make it one exact command instead of a list of manual steps.
+
+Just turning the toggle off in the bar also reverts the keyboard settings completely (that is what the snapshot is for) — it just leaves the theme hook and the generated theme in place.
+
+The snapshots live in `~/.local/state/omaccerts.presshold/`, outside the plugin folder on purpose: `omarchy plugin remove` deletes the plugin, and a record of what to undo is worth nothing if it goes with it. Only the keys this plugin writes are recorded, never a copy of the whole `keyboard.conf` — restoring a whole-file backup would also roll back any unrelated Fcitx5 setting you changed in the meantime.
+
+If you installed the plugin before this existed, there is no snapshot to restore from; the revert falls back to Fcitx5's own defaults (`EnableLongPress=False`, `Choose Modifier=Alt`).
 
 ## Requirements
 
@@ -99,7 +114,8 @@ Two things worth knowing about that config:
 ## Known limitations (v0.1)
 
 - Terminal emulators may behave differently — you may genuinely want `aaaa...` there instead of a popup. Fcitx5's own app-exclusion settings can be used for that; this plugin does not yet expose them.
-- Of the engine's own settings, only `EnableLongPress` and `Choose Modifier` are managed. `Choose Modifier` is applied on enable but not restored on disable — harmless either way, since there's no candidate list to select from once long-press is off.
+- Of the engine's own settings, only `EnableLongPress` and `Choose Modifier` are managed — both are restored on disable, from the values recorded before the first enable.
+- The revert has to be run by hand ([`scripts/uninstall.sh`](#remove)) because Omarchy's plugin manifest has no uninstall hook for `omarchy plugin remove` to call.
 - The keyboard picker reorders a key's candidates; it does not change *which* characters a key offers. Adding or removing candidates, and per-app blacklists (Fcitx5 ships with `konsole` excluded by default), are configured in Fcitx5 itself, not by this plugin, in this version.
 - The picker draws a US layout. Keys that only exist on other physical layouts still reach their candidates through the **Other scripts** strip, but they aren't placed on the board.
 
