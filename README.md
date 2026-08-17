@@ -1,5 +1,7 @@
 # Press & Hold
 
+![The accent popup appearing while typing a URL, offering ç ć č](preview.png)
+
 A macOS-style press-and-hold accented character picker for [Omarchy](https://omarchy.org/).
 
 Hold down a key like `a` and a popup lets you pick an alternate like `á`, `à`, `â`, `ã`... just like on macOS.
