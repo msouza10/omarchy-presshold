@@ -1,3 +1,6 @@
+# byte-cache from reorder-candidates.py importing fcitx5_config.py
+__pycache__/
+
 # editor / OS cruft
 *.swp
 *~

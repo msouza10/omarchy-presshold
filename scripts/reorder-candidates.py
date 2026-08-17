@@ -14,57 +14,36 @@ uwsm, itself a hard dependency of the omarchy package), so this does not
 need the ImageMagick-style "might not be installed" fallback that
 extras/theme-set.d/fcitx5-theme.sh needed.
 
+The D-Bus plumbing lives in fcitx5_config.py, shared with
+scripts/toggle-longpress.sh -- which uses the same API for the same reason:
+config written straight into ~/.config/fcitx5/conf/*.conf loses a race with
+Fcitx5's own autosave/shutdown save and gets silently reverted.
+
 Usage:
   reorder-candidates.py <key> <candidate>   Promote <candidate> to the
                                              front of <key>'s list.
   reorder-candidates.py --status <key>      Print <key>'s current
                                              candidate order, one per line.
+  reorder-candidates.py --keys              Print every long-press-enabled
+                                             key and its candidates, one key
+                                             per line: "<key> <c1> <c2> ...".
 """
 
 import sys
 
-import dbus
+from fcitx5_config import (
+    Fcitx5Unavailable,
+    controller,
+    get_config,
+    reload_addon,
+    set_config,
+)
 
 URI = "fcitx://config/addon/keyboard/longpress"
-BUS_NAME = "org.fcitx.Fcitx5"
-OBJECT_PATH = "/controller"
-IFACE = "org.fcitx.Fcitx.Controller1"
-
-
-def controller():
-    bus = dbus.SessionBus()
-    obj = bus.get_object(BUS_NAME, OBJECT_PATH)
-    return dbus.Interface(obj, IFACE)
-
-
-def unwrap(value):
-    """Recursively strip dbus wrapper types down to plain dict/list/str."""
-    if isinstance(value, dbus.Dictionary):
-        return {str(k): unwrap(v) for k, v in value.items()}
-    if isinstance(value, dbus.Array):
-        return [unwrap(v) for v in value]
-    return str(value)
-
-
-def build_asv(pyvalue):
-    """Rebuild a plain dict (from unwrap()) into a dbus a{sv} structure.
-
-    This dbus-python build has no dbus.Variant class -- variants are
-    marked with variant_level=1 on the wrapped value instead (the classic
-    python-dbus convention).
-    """
-    d = dbus.Dictionary(signature=dbus.Signature("sv"))
-    for k, v in pyvalue.items():
-        if isinstance(v, dict):
-            d[k] = dbus.Dictionary(build_asv(v), signature="sv", variant_level=1)
-        else:
-            d[k] = dbus.String(str(v), variant_level=1)
-    return d
 
 
 def get_entries(iface):
-    value, _descriptor = iface.GetConfig(URI)
-    data = unwrap(value)
+    data = get_config(iface, URI)
     return data, data.get("Entries", {})
 
 
@@ -80,13 +59,6 @@ def ordered_candidates(entry):
     return [cands[str(i)] for i in range(len(cands))]
 
 
-def apply_reload(iface):
-    try:
-        iface.ReloadAddonConfig("keyboard")
-    except dbus.exceptions.DBusException as exc:
-        print(f"warning: ReloadAddonConfig failed, config was still saved: {exc}", file=sys.stderr)
-
-
 def cmd_status(key):
     iface = controller()
     data, entries = get_entries(iface)
@@ -96,6 +68,22 @@ def cmd_status(key):
         return 1
     for ch in ordered_candidates(entry):
         print(ch)
+    return 0
+
+
+def cmd_keys():
+    iface = controller()
+    _data, entries = get_entries(iface)
+    rows = []
+    for entry in entries.values():
+        key = entry.get("Key")
+        cands = ordered_candidates(entry)
+        if not key or not cands:
+            continue
+        rows.append((key, cands))
+    rows.sort(key=lambda row: row[0])
+    for key, cands in rows:
+        print(f"{key} {' '.join(cands)}")
     return 0
 
 
@@ -125,17 +113,27 @@ def cmd_promote(key, candidate):
     entries[idx] = entry
     data["Entries"] = entries
 
-    payload = build_asv(data)
-    iface.SetConfig(URI, dbus.Dictionary(payload, signature="sv", variant_level=1))
-    apply_reload(iface)
+    set_config(iface, URI, data)
+    reload_addon(iface, "keyboard")
     return 0
 
 
 def main(argv):
-    if len(argv) == 3 and argv[1] == "--status":
-        return cmd_status(argv[2])
-    if len(argv) == 3:
-        return cmd_promote(argv[1], argv[2])
+    try:
+        if len(argv) == 2 and argv[1] == "--keys":
+            return cmd_keys()
+        if len(argv) == 3 and argv[1] == "--status":
+            return cmd_status(argv[2])
+        if len(argv) == 3:
+            return cmd_promote(argv[1], argv[2])
+    except Fcitx5Unavailable as exc:
+        # No edit-the-file fallback here, unlike toggle-longpress.sh: writing
+        # this table by hand would mean reimplementing Fcitx5's serialization
+        # for a ~87-entry nested structure, and with Fcitx5 down there is no
+        # long-press to reorder in the first place. Say so and let the caller
+        # start it.
+        print(f"error: fcitx5 is not running: {exc}", file=sys.stderr)
+        return 3
     print(__doc__, file=sys.stderr)
     return 1
 
