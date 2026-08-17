@@ -14,10 +14,25 @@ BarWidget {
   moduleName: "omaccerts.presshold"
 
   readonly property string scriptPath: Qt.resolvedUrl("scripts/toggle-longpress.sh").toString().replace("file://", "")
+  readonly property string reorderScriptPath: Qt.resolvedUrl("scripts/reorder-candidates.py").toString().replace("file://", "")
+  // Absolute path, not "python3": on systems with mise/pyenv-style shims
+  // ahead of /usr/bin in PATH, a bare "python3" resolves to a shim build
+  // that lacks python-dbus (an Arch/Omarchy system package, not something
+  // a user-level Python install would ever have), and --keys/promote fail
+  // with a silent ModuleNotFoundError on stderr no one is watching.
+  readonly property string systemPython3: "/usr/bin/python3"
 
   property bool pressHoldEnabled: false
   property bool statusKnown: false
   property bool busy: false
+
+  // Accent candidates, always fetched fresh from Fcitx5 -- never persisted
+  // in shell.json or held stale across popup sessions. Empty until the
+  // first --keys fetch (triggered by opening the key picker) completes.
+  property var accentCandidates: ({})
+  property bool candidatesKnown: false
+  property bool candidatesBusy: false
+  property bool reorderBusy: false
 
   function refreshStatus() {
     if (busy) return
@@ -38,6 +53,19 @@ BarWidget {
     toggleProcess.running = true
   }
 
+  function refreshCandidates() {
+    if (candidatesBusy) return
+    candidatesBusy = true
+    keysProcess.running = true
+  }
+
+  function promote(key, candidate) {
+    if (reorderBusy) return
+    reorderBusy = true
+    promoteProcess.command = [root.systemPython3, root.reorderScriptPath, key, candidate]
+    promoteProcess.running = true
+  }
+
   Process {
     id: statusProcess
     command: ["bash", root.scriptPath, "status"]
@@ -52,6 +80,42 @@ BarWidget {
     stdout: StdioCollector {
       id: toggleOut
       onStreamFinished: root.applyResult(toggleOut.text)
+    }
+  }
+
+  // "<key> <c1> <c2> ..." per line -> { key: [c1, c2, ...] }
+  Process {
+    id: keysProcess
+    command: [root.systemPython3, root.reorderScriptPath, "--keys"]
+    stdout: StdioCollector {
+      id: keysOut
+      onStreamFinished: {
+        var next = {}
+        var lines = keysOut.text.split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim()
+          if (!line) continue
+          var parts = line.split(" ")
+          next[parts[0]] = parts.slice(1)
+        }
+        root.accentCandidates = next
+        root.candidatesKnown = true
+        root.candidatesBusy = false
+      }
+    }
+  }
+
+  // Re-fetches just the promoted key's line from source of truth rather
+  // than trusting the client-side splice: same "state always comes from
+  // reality" rule refreshStatus() follows for the on/off toggle above.
+  Process {
+    id: promoteProcess
+    stdout: StdioCollector {
+      id: promoteOut
+      onStreamFinished: {
+        root.reorderBusy = false
+        root.refreshCandidates()
+      }
     }
   }
 
@@ -120,7 +184,13 @@ BarWidget {
       pressHoldEnabled: root.pressHoldEnabled
       statusKnown: root.statusKnown
       busy: root.busy
+      accentCandidates: root.accentCandidates
+      candidatesKnown: root.candidatesKnown
+      candidatesBusy: root.candidatesBusy
+      reorderBusy: root.reorderBusy
       onToggleRequested: root.toggle()
+      onKeyPickerRequested: root.refreshCandidates()
+      onPromoteRequested: function(key, ch) { root.promote(key, ch) }
     }
   }
 
