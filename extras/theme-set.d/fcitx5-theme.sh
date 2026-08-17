@@ -5,6 +5,13 @@
 # default/default-dark theme. Runs on every `omarchy theme set` via the
 # theme-set.d hook contract; also safe to run manually.
 #
+# The config keys go in over D-Bus (see apply_classicui_config below), but a
+# restart is still needed at the end: the theme *name* never changes here,
+# only the PNGs behind it, and a running ClassicUI keeps the images it has
+# already loaded. This is the only restart in the plugin -- the bar toggle
+# applies its change live, so an enable that also installs this hook doesn't
+# restart Fcitx5 twice in a row.
+#
 # Restarting via `systemctl --user restart omarchy-fcitx5.service` (not a
 # detached `fcitx5 -r &`): Fcitx5 runs under that unit (Restart=always) on a
 # stock Omarchy install. A detached replace process steals its D-Bus name,
@@ -220,16 +227,107 @@ Top=5
 Bottom=5
 THEMEEOF
 
+FONT="JetBrainsMono Nerd Font 9"
+CLASSICUI_KEYS=(
+  "Theme=omarchy"
+  "DarkTheme=omarchy"
+  "UseDarkTheme=False"
+  # ClassicUI's "follow the system accent color" defaults to on and resolves
+  # it from the desktop portal *asynchronously*, after the panel is already
+  # up. That repaints the popup a while after startup with a color that has
+  # nothing to do with the Omarchy theme generated here -- the popup coming
+  # up unthemed and then changing on its own minutes later. The colors below
+  # are already derived from the active theme, so pin it off.
+  "UseAccentColor=False"
+  "Font=$FONT"
+  "MenuFont=$FONT"
+)
+
+# Apply through Fcitx5's own D-Bus config API rather than sed'ing
+# classicui.conf behind its back. Fcitx5 owns that file while it runs: it
+# rewrites it from its in-memory state on a periodic autosave and again on
+# shutdown -- including the shutdown half of the restart below. An edit
+# racing that save is silently reverted whenever it loses, which leaves the
+# popup on Fcitx5's stock theme until something restarts it again. SetConfig
+# puts the values in the live process, which then persists the file itself,
+# so the restart that follows saves the right thing.
+#
+# This is inlined rather than shared with scripts/fcitx5_config.py because
+# the hook is copied out of the plugin into
+# ~/.config/omarchy/hooks/theme-set.d/ and has to stand on its own there.
+# python-dbus is a guaranteed Omarchy dependency (pulled in transitively by
+# uwsm, itself a hard dependency of the omarchy package).
+apply_classicui_config() {
+  python3 - "$@" <<'PYEOF'
+import sys
+
+try:
+    import dbus
+except ImportError:
+    sys.exit(3)
+
+URI = "fcitx://config/addon/classicui"
+
+
+def unwrap(value):
+    if isinstance(value, dbus.Dictionary):
+        return {str(k): unwrap(v) for k, v in value.items()}
+    if isinstance(value, dbus.Array):
+        return [unwrap(v) for v in value]
+    return str(value)
+
+
+def build_asv(pyvalue):
+    d = dbus.Dictionary(signature=dbus.Signature("sv"))
+    for key, value in pyvalue.items():
+        if isinstance(value, list):
+            value = {str(i): item for i, item in enumerate(value)}
+        if isinstance(value, dict):
+            d[key] = dbus.Dictionary(build_asv(value), signature="sv", variant_level=1)
+        else:
+            d[key] = dbus.String(str(value), variant_level=1)
+    return d
+
+
+try:
+    bus = dbus.SessionBus()
+    obj = bus.get_object("org.fcitx.Fcitx5", "/controller")
+    iface = dbus.Interface(obj, "org.fcitx.Fcitx.Controller1")
+    # SetConfig is a full replace, not a merge: fetch everything, change only
+    # the keys asked for, send the rest back untouched.
+    value, _descriptor = iface.GetConfig(URI)
+except dbus.exceptions.DBusException:
+    sys.exit(3)
+
+data = unwrap(value)
+for arg in sys.argv[1:]:
+    key, sep, val = arg.partition("=")
+    if sep:
+        data[key] = val
+
+iface.SetConfig(URI, dbus.Dictionary(build_asv(data), signature="sv", variant_level=1))
+try:
+    iface.ReloadAddonConfig("classicui")
+except dbus.exceptions.DBusException:
+    pass
+PYEOF
+}
+
 mkdir -p "$(dirname "$FCITX_CLASSICUI_CONF")"
-touch "$FCITX_CLASSICUI_CONF"
-for key_value in "Theme=omarchy" "DarkTheme=omarchy" "UseDarkTheme=False" "Font=JetBrainsMono Nerd Font 9" "MenuFont=JetBrainsMono Nerd Font 9"; do
-  key="${key_value%%=*}"
-  if grep -qF "$key=" "$FCITX_CLASSICUI_CONF"; then
-    sed -i "s|^$key=.*|$key_value|" "$FCITX_CLASSICUI_CONF"
-  else
-    printf '%s\n' "$key_value" >>"$FCITX_CLASSICUI_CONF"
-  fi
-done
+if ! apply_classicui_config "${CLASSICUI_KEYS[@]}"; then
+  # Fcitx5 isn't running (or python-dbus is missing): writing the file is
+  # safe precisely because nothing is up to overwrite it, and Fcitx5 reads
+  # it on its next start.
+  touch "$FCITX_CLASSICUI_CONF"
+  for key_value in "${CLASSICUI_KEYS[@]}"; do
+    key="${key_value%%=*}"
+    if grep -q "^$key=" "$FCITX_CLASSICUI_CONF"; then
+      sed -i "s|^$key=.*|$key_value|" "$FCITX_CLASSICUI_CONF"
+    else
+      printf '%s\n' "$key_value" >>"$FCITX_CLASSICUI_CONF"
+    fi
+  done
+fi
 
 if systemctl --user list-unit-files omarchy-fcitx5.service >/dev/null 2>&1; then
   systemctl --user restart omarchy-fcitx5.service
