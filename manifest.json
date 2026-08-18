@@ -3,7 +3,7 @@
   "id": "io.github.msouza10.presshold",
   "name": "Press & Hold",
   "version": "0.1.0",
-  "author": "omaccerts",
+  "author": "msouza",
   "license": "MIT",
   "description": "macOS-style press-and-hold accented character picker, powered by Fcitx5's native long-press engine.",
   "kinds": ["bar-widget"],
